@@ -19,7 +19,7 @@ jobs:
         run: |
           rm -rf app
           mkdir app
-          unzip -q Kite-Mobile-Positions-Reference-v2.zip -d app
+          unzip -q Kite-Mobile-Positions-Reference-v2-updated.zip -d app
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
