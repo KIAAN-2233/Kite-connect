@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -22,9 +23,33 @@ jobs:
 
       - name: Extract dashboard project
         run: |
-          rm -rf app
-          mkdir app
-          unzip -q Kite-Mobile-Positions-Reference-v8-motorola-edge-40-neo.zip -d app
+          rm -rf app extracted
+          mkdir -p app extracted
+
+          unzip -q Kite-Mobile-Positions-Reference-v8-motorola-edge-40-neo.zip -d extracted
+
+          echo "Searching for package.json..."
+
+          PACKAGE_JSON=$(find extracted -type f -name "package.json" -print -quit)
+
+          if [ -z "$PACKAGE_JSON" ]; then
+            echo "ERROR: package.json was not found inside the ZIP."
+            echo "ZIP contents:"
+            find extracted -maxdepth 5 -type f | head -100
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$PACKAGE_JSON")
+
+          echo "React project found at: $PROJECT_DIR"
+
+          cp -a "$PROJECT_DIR"/. app/
+
+          echo "Final app directory:"
+          ls -la app
+
+          echo "Checking package.json:"
+          test -f app/package.json
 
       - name: Install React dependencies
         working-directory: app
@@ -46,7 +71,7 @@ jobs:
           cat > capacitor.config.json <<'EOF'
           {
             "appId": "com.kiaan.zerodhademo",
-            "appName": "Zerodha Demo",
+            "appName": "Zerodha",
             "webDir": "dist"
           }
           EOF
