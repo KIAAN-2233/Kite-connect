@@ -8,12 +8,17 @@ on:
 
 jobs:
   build:
-    name: Build Zerodha Demo APK
+    name: Build Zerodha APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
       - name: Extract dashboard project
         run: |
@@ -21,29 +26,22 @@ jobs:
           mkdir app
           unzip -q Kite-Mobile-Positions-Reference-v8-motorola-edge-40-neo.zip -d app
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: app/kitefix/package-lock.json
-
       - name: Install React dependencies
-        working-directory: app/kitefix
-        run: npm ci
+        working-directory: app
+        run: npm install
 
       - name: Build React dashboard
-        working-directory: app/kitefix
+        working-directory: app
         run: npm run build
 
       - name: Install Capacitor
-        working-directory: app/kitefix
+        working-directory: app
         run: |
           npm install @capacitor/core@7 @capacitor/android@7
           npm install --save-dev @capacitor/cli@7
 
       - name: Create Capacitor configuration
-        working-directory: app/kitefix
+        working-directory: app
         run: |
           cat > capacitor.config.json <<'EOF'
           {
@@ -54,11 +52,11 @@ jobs:
           EOF
 
       - name: Add Android platform
-        working-directory: app/kitefix
+        working-directory: app
         run: npx cap add android
 
       - name: Sync Android project
-        working-directory: app/kitefix
+        working-directory: app
         run: npx cap sync android
 
       - name: Set up Java 21
@@ -68,11 +66,11 @@ jobs:
           java-version: '21'
 
       - name: Build Android APK
-        working-directory: app/kitefix/android
+        working-directory: app/android
         run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: zerodha-demo-apk-v8-motorola-edge-40-neo
-          path: app/kitefix/android/app/build/outputs/apk/debug/app-debug.apk
+          name: zerodha-demo-apk
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
