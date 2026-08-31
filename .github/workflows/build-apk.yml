@@ -24,26 +24,26 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: npm
-          cache-dependency-path: app/package-lock.json
+          cache-dependency-path: app/kitefix/package-lock.json
 
       - name: Install React dependencies
-        working-directory: app
+        working-directory: app/kitefix
         run: npm ci
 
       - name: Build React dashboard
-        working-directory: app
+        working-directory: app/kitefix
         run: npm run build
 
       - name: Install Capacitor
-        working-directory: app
+        working-directory: app/kitefix
         run: |
           npm install @capacitor/core@7 @capacitor/android@7
           npm install --save-dev @capacitor/cli@7
 
       - name: Create Capacitor configuration
-        working-directory: app
+        working-directory: app/kitefix
         run: |
           cat > capacitor.config.json <<'EOF'
           {
@@ -54,11 +54,11 @@ jobs:
           EOF
 
       - name: Add Android platform
-        working-directory: app
+        working-directory: app/kitefix
         run: npx cap add android
 
       - name: Sync Android project
-        working-directory: app
+        working-directory: app/kitefix
         run: npx cap sync android
 
       - name: Set up Java 21
@@ -68,11 +68,11 @@ jobs:
           java-version: '21'
 
       - name: Build Android APK
-        working-directory: app/android
+        working-directory: app/kitefix/android
         run: ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: zerodha-demo-apk
-          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+          path: app/kitefix/android/app/build/outputs/apk/debug/app-debug.apk
