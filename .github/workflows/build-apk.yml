@@ -19,8 +19,7 @@ jobs:
         run: |
           rm -rf app
           mkdir app
-          unzip -q Zerodha-Clone-Latest-Dashboard.zip -d app
-          ls -la app
+          unzip -q Zerodha-Clone-Dashboard-Root.zip -d app
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
