@@ -18,13 +18,13 @@ jobs:
       - name: Extract dashboard project
         run: |
           rm -rf app
-          mkdir app
+          mkdir -p app
           unzip -q Kite-Mobile-Positions-Reference-v2-updated.zip -d app
 
-      - name: Set up Node.js
+      - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
           cache: npm
           cache-dependency-path: app/kitefix/package-lock.json
 
@@ -45,13 +45,19 @@ jobs:
       - name: Create Capacitor configuration
         working-directory: app/kitefix
         run: |
-          cat > capacitor.config.json <<'EOF'
+          cat > capacitor.config.json <<'EOF2'
           {
             "appId": "com.kiaan.zerodhademo",
             "appName": "Zerodha Demo",
             "webDir": "dist"
           }
-          EOF
+          EOF2
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
 
       - name: Add Android platform
         working-directory: app/kitefix
@@ -60,12 +66,6 @@ jobs:
       - name: Sync Android project
         working-directory: app/kitefix
         run: npx cap sync android
-
-      - name: Set up Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
 
       - name: Build Android APK
         working-directory: app/kitefix/android
