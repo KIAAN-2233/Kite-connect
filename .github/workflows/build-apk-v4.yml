@@ -1,0 +1,78 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Zerodha Demo APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract dashboard project
+        run: |
+          rm -rf app
+          mkdir -p app
+          unzip -q Kite-Mobile-Positions-Reference-v4-exact-kite-ui.zip -d app
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/kitefix/package-lock.json
+
+      - name: Install React dependencies
+        working-directory: app/kitefix
+        run: npm ci
+
+      - name: Build React dashboard
+        working-directory: app/kitefix
+        run: npm run build
+
+      - name: Install Capacitor
+        working-directory: app/kitefix
+        run: |
+          npm install @capacitor/core@7 @capacitor/android@7
+          npm install --save-dev @capacitor/cli@7
+
+      - name: Create Capacitor configuration
+        working-directory: app/kitefix
+        run: |
+          cat > capacitor.config.json <<'EOF2'
+          {
+            "appId": "com.kiaan.zerodhademo",
+            "appName": "Zerodha Demo",
+            "webDir": "dist"
+          }
+          EOF2
+
+      - name: Add Android platform
+        working-directory: app/kitefix
+        run: npx cap add android
+
+      - name: Sync Android project
+        working-directory: app/kitefix
+        run: npx cap sync android
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build Android APK
+        working-directory: app/kitefix/android
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: zerodha-demo-apk
+          path: app/kitefix/android/app/build/outputs/apk/debug/app-debug.apk
