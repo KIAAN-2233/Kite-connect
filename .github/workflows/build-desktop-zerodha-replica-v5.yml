@@ -1,0 +1,167 @@
+name: Build Desktop Zerodha Replica
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Zerodha Desktop
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Find project ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ZIP_NAME="Zerodha-Clone-Desktop-Replica-v5.zip"
+
+          if [ ! -f "$ZIP_NAME" ]; then
+            echo "ERROR: $ZIP_NAME was not found in the repository root."
+            echo
+            echo "ZIP files currently in the repository:"
+            find . -maxdepth 1 -type f -name "*.zip" -print || true
+            exit 1
+          fi
+
+          echo "Using project ZIP: $ZIP_NAME"
+          echo "PROJECT_ZIP=$ZIP_NAME" >> "$GITHUB_ENV"
+
+      - name: Extract Zerodha project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf source
+          mkdir -p source
+
+          unzip -q "$PROJECT_ZIP" -d source
+
+          echo "Extracted project:"
+          find source -maxdepth 3 -type f \( -name "package.json" -o -name "vite.config.*" \) -print
+
+      - name: Locate React frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          FRONTEND_PACKAGE="$(find source -type f -path "*/frontend/package.json" -not -path "*/node_modules/*" | head -n 1)"
+
+          if [ -z "$FRONTEND_PACKAGE" ]; then
+            echo "ERROR: frontend/package.json was not found."
+            echo
+            echo "Available package.json files:"
+            find source -type f -name "package.json" -not -path "*/node_modules/*" -print
+            exit 1
+          fi
+
+          FRONTEND_DIR="$(dirname "$FRONTEND_PACKAGE")"
+
+          echo "Frontend directory: $FRONTEND_DIR"
+          echo "FRONTEND_DIR=$FRONTEND_DIR" >> "$GITHUB_ENV"
+
+      - name: Verify frontend project
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cd "$FRONTEND_DIR"
+
+          test -f package.json
+          test -f vite.config.js
+
+          node -e '
+            const p = require("./package.json");
+            if (!p.scripts || p.scripts.build !== "vite build") {
+              console.error("ERROR: Expected frontend build script: vite build");
+              process.exit(1);
+            }
+            console.log("Build script:", p.scripts.build);
+          '
+
+      - name: Install frontend dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$FRONTEND_DIR"
+          npm install --no-audit --no-fund
+
+      - name: Build React application
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$FRONTEND_DIR"
+          npm run build
+
+      - name: Verify desktop build
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DIST_DIR="$FRONTEND_DIR/dist"
+
+          if [ ! -d "$DIST_DIR" ]; then
+            echo "ERROR: Vite did not create the dist directory."
+            exit 1
+          fi
+
+          if [ ! -f "$DIST_DIR/index.html" ]; then
+            echo "ERROR: dist/index.html was not created."
+            exit 1
+          fi
+
+          echo "Desktop build verified:"
+          du -sh "$DIST_DIR"
+          find "$DIST_DIR" -maxdepth 2 -type f | head -50
+
+      - name: Create desktop build ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf desktop-build
+          mkdir -p desktop-build
+
+          cp -R "$FRONTEND_DIR/dist/." desktop-build/
+
+          cat > desktop-build/README.txt <<'EOF'
+          Zerodha Desktop Replica
+
+          This is the production Vite build.
+
+          To test locally:
+          1. Install Node.js.
+          2. From the project source, run: npm install
+          3. Run: npm run start
+
+          The files in this ZIP are the compiled frontend output.
+          EOF
+
+          cd desktop-build
+          zip -qr ../zerodha-desktop-build.zip .
+
+          cd ..
+          echo "Created: zerodha-desktop-build.zip"
+          ls -lh zerodha-desktop-build.zip
+
+      - name: Upload desktop build
+        uses: actions/upload-artifact@v4
+        with:
+          name: zerodha-desktop-build
+          path: zerodha-desktop-build.zip
+          if-no-files-found: error
+          retention-days: 14
