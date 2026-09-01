@@ -1,0 +1,90 @@
+name: Build Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Kite Mobile APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Extract latest Zerodha project
+        run: |
+          rm -rf extracted app
+          mkdir -p extracted app
+          unzip -q Zerodha-Clone-main-2026-Kite-Mobile.zip -d extracted
+
+          FRONTEND_PACKAGE=$(find extracted -type f -path '*/frontend/package.json' -print -quit)
+
+          if [ -z "$FRONTEND_PACKAGE" ]; then
+            echo "ERROR: frontend/package.json was not found."
+            find extracted -maxdepth 5 -type f | head -150
+            exit 1
+          fi
+
+          FRONTEND_DIR=$(dirname "$FRONTEND_PACKAGE")
+          echo "Frontend project: $FRONTEND_DIR"
+          cp -a "$FRONTEND_DIR"/. app/
+          test -f app/package.json
+          ls -la app
+
+      - name: Install React dependencies
+        working-directory: app
+        run: npm install
+
+      - name: Build React dashboard
+        working-directory: app
+        run: npm run build
+
+      - name: Install Capacitor
+        working-directory: app
+        run: |
+          npm install @capacitor/core@7 @capacitor/android@7
+          npm install --save-dev @capacitor/cli@7
+
+      - name: Create Capacitor configuration
+        working-directory: app
+        run: |
+          cat > capacitor.config.json <<'JSON'
+          {
+            "appId": "com.kiaan.zerodhamobile",
+            "appName": "Kite",
+            "webDir": "dist"
+          }
+          JSON
+
+      - name: Add Android platform
+        working-directory: app
+        run: npx cap add android
+
+      - name: Sync Android project
+        working-directory: app
+        run: npx cap sync android
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build Android APK
+        working-directory: app/android
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kite-mobile-apk
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
